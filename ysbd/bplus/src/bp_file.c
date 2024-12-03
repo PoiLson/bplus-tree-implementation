@@ -148,6 +148,7 @@ void insertIntoLeaf(BP_DataNode *leaf, Record record);
 void splitLeafNode(BP_IndexNode* parentNode, BP_DataNode *leaf, Record record, BPLUS_INFO *bplus_info);
 void insertIntoIndexNode(BP_IndexNode *oldNode, int key, BP_IndexNode *newNode, BPLUS_INFO *bplus_info);
 void splitIndexNode(BP_IndexNode *oldNode, int key, BP_DataNode* leafNode, BP_IndexNode* childNode, BPLUS_INFO *bplus_info);
+BP_IndexNode *SearchForLeaf(BP_IndexNode *root, int key);
 
 int BP_InsertEntry(int file_desc, BPLUS_INFO *bplus_info, Record record)
 {
@@ -302,14 +303,7 @@ BP_IndexNode *findLeafNode(BP_IndexNode *root, int key)
                 }
             }
 
-            if (key == root->keys[idx])
-            {
-                // we have already inserted that key in our tree
-                return NULL;
-            }
-
         }
-        
         return root;
     }
 
@@ -749,8 +743,66 @@ void insertIntoIndexNode(BP_IndexNode *parentNode, int key, BP_IndexNode *newNod
 
 }
 
+
+BP_IndexNode *SearchForLeaf(BP_IndexNode *root, int key)
+{
+    // if the root is leaf return it
+    // because we will insert the record into it
+
+    if (root->isLeaf)
+        return root;
+
+    // if the root is not a leaf node we have to traverse the tree
+    for (int idx = 0; idx < root->numKeys; idx++)
+    {
+        if (key < root->keys[idx])
+        {
+            // we have to go the right child
+            return SearchForLeaf(root->child[idx], key);
+        }
+    }
+
+    // if we reach here we have to go to the last child
+    return SearchForLeaf(root->child[root->numKeys], key);
+}
+
 int BP_GetEntry(int file_desc, BPLUS_INFO *bplus_info, int value, Record **record)
 {
+
+    BF_Block *root;
+    BF_Block_Init(&root);
+
+    CALL_BF(BF_GetBlock(file_desc, bplus_info->rootID, root));
+
+    BP_IndexNode *rootNode = (BP_IndexNode *)BF_Block_GetData(root);
+
+    BP_IndexNode *leafNode = SearchForLeaf(rootNode, value);
+
+    //we have found the leafnode that the record may be
+
+    for(int idx = 0; idx <= leafNode->numKeys; idx++)
+    {
+        if(leafNode->leaf[idx] != NULL)
+        {
+            for(int i = 0; i < leafNode->leaf[idx]->numOfRecords; i++)
+            {
+                if(value == leafNode->leaf[idx]->records[i].id)
+                {
+                    *record = &leafNode->leaf[idx]->records[i];
+
+                    BF_UnpinBlock(root);
+                    BF_Block_Destroy(&root);
+                    return 0;
+                }
+            }
+        }
+        else
+            break;
+    }
+
+    BF_UnpinBlock(root);
+    BF_Block_Destroy(&root);
+    //if not found
     *record = NULL;
-    return 0;
+    return -1;
 }

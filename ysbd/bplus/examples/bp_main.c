@@ -90,15 +90,27 @@ int main()
     printf("child of root %d, %d\n", idx, root->keys[idx]);
   }
 
+  printf("rootID (main): %d\n", bp_info->rootID);
 
   // insertEntries();
-  // findEntries();
 
   ////////////////////////////////////////////////
   
+  Record tmpRec;  //Αντί για malloc
+  Record* result=&tmpRec;
+  
+  int id=31; 
+  printf("Searching for: %d\n",id);
+  BP_GetEntry( file_desc, bp_info, id, &result);
+
+  if(result!=NULL)
+    printRecord(*result);
 
   BP_CloseFile(file_desc, bp_info);
   BF_Close();
+
+
+  // findEntries();
 }
 
 void insertEntries(){
@@ -128,7 +140,8 @@ void findEntries(){
   
   int id=159; 
   printf("Searching for: %d\n",id);
-  BP_GetEntry( file_desc,info, id,&result);
+  BP_GetEntry( file_desc, info, id, &result);
+
   if(result!=NULL)
     printRecord(*result);
 
